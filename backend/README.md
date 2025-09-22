@@ -1,89 +1,76 @@
- # Backend - API de Predicción de Ingresos
- 
- Este directorio contiene el servicio de backend para el proyecto de predicción de ingresos. Es una aplicación FastAPI que expone un endpoint para predecir los ingresos basándose en el precio y el día.
- 
- ## Requisitos Previos
- 
- *   Python 3.10+
- *   `pip`
- 
- ## Configuración
- 
- La aplicación carga su configuración desde variables de entorno. La forma más sencilla de configurarlas es creando un archivo `.env` en este directorio (`backend/`).
- 
- Copia y pega el siguiente contenido en tu archivo `backend/.env`:
- 
- ```env
- REVENUE_MODEL_PATH=resources/revenue-model_ridge.joblib
- REVENUE_SCALER_PATH=resources/revenue-standard_scaler.joblib
- PREDICT_REVENUE_ENDPOINT=/predict/revenue
- ```
- 
- ## Instalación
- 
- 1.  Navega al directorio `backend`.
- 
- 2.  Instala los paquetes de Python necesarios:
-     ```bash
-     pip install -r requirements.txt
-     ```
- 
- 3.  Asegúrate de que los archivos del modelo y del escalador (referenciados en tu archivo `.env`) estén presentes en el directorio `resources`.
- 
- ## Ejecución de la Aplicación
- 
- Desde el directorio `backend`, ejecuta el siguiente comando para iniciar el servidor de la API:
- 
- ```bash
- uvicorn api:app --reload
- ```
- 
- La API estará disponible en `http://127.0.0.1:8000`.
- 
- ## Documentación de la API
- 
- Una vez que el servidor esté en funcionamiento, puedes acceder a la documentación interactiva de la API (Swagger UI) en `http://127.0.0.1:8000/docs`.
- 
- ## Endpoint: `/predict/revenue`
- 
- *   **Método:** `POST`
- *   **Descripción:** Predice los ingresos basándose en el precio de un producto y el día del mes.
- *   **Cuerpo de la Solicitud:** Un objeto JSON con las siguientes claves:
-     *   `Price` (float): El precio del producto. Debe estar entre 1 y 75.
-     *   `Day` (float): El día del mes. Debe estar entre 1 y 31.
- 
- *   **Ejemplo de Solicitud con `curl`:**
- 
-     ```bash
-     curl -X 'POST' \
-       'http://127.0.0.1:8000/predict/revenue' \
-       -H 'accept: application/json' \
-       -H 'Content-Type: application/json' \
-       -d '{
-       "Price": 50,
-       "Day": 15
-     }'
-     ```
- 
- *   **Ejemplo de Respuesta:**
- 
-     ```json
-     {
-       "predicted_revenue": 543.21
-     }
-     ```
-     *(Nota: El valor real dependerá de la predicción del modelo.)*
- 
- ## Estructura del Proyecto
- 
- ```
- backend/
- ├── resources/
- │   ├── revenue-model_ridge.joblib
- │   └── revenue-standard_scaler.joblib
- ├── models/
- │   └── revenue_model.py
- ├── api.py
- ├── README.md
- └── requirements.txt
- ```
+# Backend API - Revenue Prediction
+
+This directory contains the FastAPI application that serves the revenue prediction model.
+
+## How it Works
+
+The API receives product data (`Price`, `Day`, `Category`, `Location`, `Platform`), preprocesses it using a saved scaler and encoders, and then uses a pre-trained regression model to predict the revenue.
+
+## Running the Server
+
+From the `backend` directory, run the following command to start the Uvicorn server:
+
+```bash
+uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+```
+
+The `--reload` flag enables auto-reloading when you make changes to the code. The server will be accessible at `http://localhost:8000`.
+
+## API Endpoint
+
+### Predict Revenue
+
+-   **URL:** `/predict/revenue` (or as defined in `PREDICT_REVENUE_ENDPOINT` env var)
+-   **Method:** `POST`
+-   **Description:** Predicts revenue based on product features.
+
+#### Request Body
+
+The request body should be a JSON object with the following structure:
+
+```json
+{
+  "Price": 50.5,
+  "Day": 15,
+  "Category": "Vitamin",
+  "Location": "USA",
+  "Platform": "Amazon"
+}
+```
+
+-   `Price`: `float` (must be between 1 and 75)
+-   `Day`: `float` (must be between 1 and 31)
+-   `Category`: `string` (e.g., "Vitamin", "Herbs")
+-   `Location`: `string` (e.g., "USA", "UK")
+-   `Platform`: `string` (e.g., "Amazon", "Walmart")
+
+#### Example `curl` Request
+
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/predict/revenue' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "Price": 50.5,
+  "Day": 15,
+  "Category": "Vitamin",
+  "Location": "USA",
+  "Platform": "Amazon"
+}'
+```
+
+#### Success Response
+
+-   **Code:** `200 OK`
+-   **Content:**
+
+```json
+{
+  "predicted_revenue": 12345.67
+}
+```
+
+## Environment Variables
+
+The application relies on a `.env` file in the project root to load necessary configurations. See the main `README.md` for details on setting up this file.
