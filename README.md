@@ -5,8 +5,8 @@ This project implements a machine learning model to solve a regression problem: 
 ## Project Structure
 
 -   `.devcontainer/`: Contains configuration for the development container, ensuring a consistent development environment.
--   `backend/`: The FastAPI application that serves the machine learning model.
--   `frontend/`: The user interface for interacting with the prediction API.
+-   `backend/`: The FastAPI application that serves the machine learning model. See `backend/README.md` for more details.
+-   `frontend/`: The user interface for interacting with the prediction API. See `frontend/README.md` for more details.
 
 ## Getting Started
 
@@ -36,7 +36,7 @@ This project is configured to run inside a VS Code Development Container, which 
     REVENUE_PLATFORM_PATH=./models/revenue_platform_encoder.joblib
     REVENUE_LOCATION_PATH=./models/revenue_location_encoder.joblib
     PREDICT_REVENUE_ENDPOINT=/predict/revenue
-    FASTAPI_URL=http://localhost:8000
+    API_URL=http://localhost:8000
     ```
     *Note: The model, scaler, and encoder files should be placed in a `models/` directory in the project root.*
 
@@ -128,3 +128,51 @@ This method uses `docker-compose.yml` to build the Docker images from the `Docke
 
 3.  **Stop the Application:**
     Press `Ctrl+C` in the terminal, then run `docker-compose down` to stop and remove the containers.
+
+## Deployment
+
+This section provides a basic guide for deploying the application using Docker on a server.
+
+### Prerequisites
+
+-   A server (e.g., a cloud VM from AWS, GCP, DigitalOcean) with a public IP address.
+-   Docker and Docker Compose installed on the server.
+-   Git installed on the server.
+
+### Steps
+
+1.  **SSH into your server.**
+
+2.  **Clone the repository:**
+    ```bash
+    git clone <your-repository-url>
+    cd proyecto5-problema-regresion-grupo1
+    ```
+
+3.  **Create the production `.env` file:**
+    Create a `.env` file in the project root. The key difference for production is the `FASTAPI_URL`, which must use the Docker service name of the backend (`backend`) so the frontend container can find it.
+
+    ```env
+    REVENUE_MODEL_PATH=./models/revenue_model.joblib
+    REVENUE_SCALER_PATH=./models/revenue_scaler.joblib
+    REVENUE_CATEGORY_PATH=./models/revenue_category_encoder.joblib
+    REVENUE_PLATFORM_PATH=./models/revenue_platform_encoder.joblib
+    REVENUE_LOCATION_PATH=./models/revenue_location_encoder.joblib
+    PREDICT_REVENUE_ENDPOINT=/predict/revenue
+    API_URL=http://backend:8000
+    ```
+    *Note: Ensure the `models/` directory and its contents are on the server.*
+
+4.  **Build and Run with Docker Compose:**
+    Use Docker Compose to build the images and run the containers in detached mode (`-d`).
+    ```bash
+    docker-compose up --build -d
+    ```
+
+5.  **Access the Application:**
+    The frontend application should now be accessible in your web browser at `http://<your-server-ip>:8501`.
+
+### Production Considerations
+
+-   **Security**: For a real production environment, you should not expose the Streamlit port (8501) directly. It's highly recommended to use a reverse proxy like Nginx or Traefik to handle incoming traffic on standard ports (80/443), manage SSL/TLS certificates, and route requests to the Streamlit container.
+-   **Backend Exposure**: The backend API port (8000) does not need to be exposed publicly if it's only accessed by the frontend container. The `docker-compose.yml` file should be configured to only expose the frontend port to the host machine.
