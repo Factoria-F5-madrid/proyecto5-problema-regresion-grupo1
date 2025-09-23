@@ -3,11 +3,12 @@
 This project implements a machine learning model to solve a regression problem: predicting product revenue. It exposes the model via a web API built with FastAPI and includes a frontend for user interaction.
 
 ## Project Structure
-
 -   `.devcontainer/`: Contains configuration for the development container, ensuring a consistent development environment.
 -   `backend/`: The FastAPI application that serves the machine learning model. See `backend/README.md` for more details.
 -   `frontend/`: The user interface for interacting with the prediction API. See `frontend/README.md` for more details.
--   `resources/`: The resources used by the backend and the frontend.
+-   `resources/`: Shared assets used by both the backend and frontend. This includes machine learning models, encoders, and images.
+-   `docker-compose.yml`: Defines the services for development, including live-reloading.
+-   `.env`: Environment variables for configuration (you will need to create this).
 
 ## Getting Started
 
@@ -29,18 +30,17 @@ This project is configured to run inside a VS Code Development Container, which 
 
 2.  **Create Environment File:**
     The application requires environment variables to locate the model files. Create a `.env` file in the project root (`/workspaces/proyecto5-problema-regresion-grupo1`) and add the following, adjusting the paths if necessary:
-
     ```env
     REVENUE_MODEL_PATH=./resources/revenue/model_ridge.joblib
     REVENUE_SCALER_PATH=./resources/revenue/standard_scaler.joblib
     REVENUE_CATEGORY_PATH=./resources/revenue/category_by_price_dict.joblib
     REVENUE_PLATFORM_PATH=./resources/revenue/platform_by_price_dict.joblib
     REVENUE_LOCATION_PATH=./resources/revenue/location_by_price_dict.joblib
-    PREDICT_REVENUE_ENDPOINT=/predict/revenue
-    API_URL=http://127.0.0.1:8000
+    PREDICT_REVENUE_ENDPOINT=/predict/revenue # API endpoint for predictions
+    API_URL=http://127.0.0.1:8000 # Backend URL for local/devcontainer runs
     AISLE_IMG=./resources/images/aisle.png
     ```
-    *Note: The model, scaler, and encoder files should be placed in a `models/` directory in the project root.*
+    *Note: All model, scaler, and encoder files are expected to be in the `resources/` directory as specified above.*
 
 3.  **Open in Dev Container:**
     Open the project folder in VS Code. You should see a prompt in the bottom-right corner asking to "Reopen in Container". Click it. This will build the Docker container and install all dependencies from `backend/requirements.txt` and `frontend/requirements.txt`.
@@ -86,7 +86,7 @@ This project can be run in two ways: inside the VS Code Dev Container (recommend
 
 ### Method 1: Running in Dev Container
 
-After opening the project in the Dev Container, you can run each service in a separate terminal.
+After opening the project in the Dev Container, you can run each service in a separate terminal from the project root.
 
 #### Running the Backend
 
@@ -131,13 +131,14 @@ This method uses `docker-compose.yml` to build the Docker images from the `Docke
 
 ## Deployment
 
-This section provides a basic guide for deploying the application using Docker on a server.
+This section provides a guide for deploying the application to a production environment using Docker Compose. The key difference from the development setup is that we will use the self-contained Docker images without mounting local volumes.
 
 ### Prerequisites
 
 -   A server (e.g., a cloud VM from AWS, GCP, DigitalOcean) with a public IP address.
 -   Docker and Docker Compose installed on the server.
 -   Git installed on the server.
+-   Your firewall configured to allow traffic on the port you will use (e.g., 8501 for Streamlit, or 80/443 if using a reverse proxy).
 
 ### Steps
 
@@ -149,23 +150,24 @@ This section provides a basic guide for deploying the application using Docker o
     cd proyecto5-problema-regresion-grupo1
     ```
 
-3.  **Create the production `.env` file:**
-    Create a `.env` file in the project root. The key difference for production is the `FASTAPI_URL`, which must use the Docker service name of the backend (`backend`) so the frontend container can find it.
-
+3.  **Create the `.env` file:**
+    Create a `.env` file in the project root. The values will be the same as in development. The `API_URL` variable is overridden by the `docker-compose.yml` for the container-to-container communication.
     ```env
     REVENUE_MODEL_PATH=./resources/revenue/model_ridge.joblib
     REVENUE_SCALER_PATH=./resources/revenue/standard_scaler.joblib
     REVENUE_CATEGORY_PATH=./resources/revenue/category_by_price_dict.joblib
     REVENUE_PLATFORM_PATH=./resources/revenue/platform_by_price_dict.joblib
     REVENUE_LOCATION_PATH=./resources/revenue/location_by_price_dict.joblib
-    PREDICT_REVENUE_ENDPOINT=/predict/revenue
-    API_URL=http://127.0.0.1:8000
+    PREDICT_REVENUE_ENDPOINT=/predict/revenue # API endpoint for predictions
+    API_URL=http://127.0.0.1:8000 # Not used by Docker Compose, but good to have
     AISLE_IMG=./resources/images/aisle.png
     ```
-    *Note: Ensure the `models/` directory and its contents are on the server.*
+    *Note: Ensure the `resources/` directory and its contents are on the server.*
 
 4.  **Build and Run with Docker Compose:**
-    Use Docker Compose to build the images and run the containers in detached mode (`-d`).
+    For production, it's crucial to run the application using the code baked into the images, not the local files. To do this, you can comment out or remove the `volumes` sections from your `docker-compose.yml` file.
+
+    Then, build the images and run the containers in detached mode (`-d`):
     ```bash
     docker-compose up --build -d
     ```
@@ -176,4 +178,5 @@ This section provides a basic guide for deploying the application using Docker o
 ### Production Considerations
 
 -   **Security**: For a real production environment, you should not expose the Streamlit port (8501) directly. It's highly recommended to use a reverse proxy like Nginx or Traefik to handle incoming traffic on standard ports (80/443), manage SSL/TLS certificates, and route requests to the Streamlit container.
--   **Backend Exposure**: The backend API port (8000) does not need to be exposed publicly if it's only accessed by the frontend container. The `docker-compose.yml` file should be configured to only expose the frontend port to the host machine.
+-   **Backend Exposure**: The backend API port (8000) does not need to be exposed publicly if it's only accessed by the frontend container. In your `docker-compose.yml`, you can remove the `ports` section for the `backend` service to make it only accessible within the Docker network.
+-   **Separate Production Config**: A best practice is to have a separate `docker-compose.prod.yml` file that omits the `volumes` and development-only `command` overrides. You would run it with `docker-compose -f docker-compose.prod.yml up --build -d`.
