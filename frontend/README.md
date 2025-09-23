@@ -11,16 +11,13 @@ This directory contains the Streamlit frontend application for the revenue predi
 
 ## Setup and Installation
 
-This project is designed to be run within the provided Dev Container, which handles dependency installation automatically.
+This project is designed to be run from the project root, either within the Dev Container or a local virtual environment. The dependencies for both frontend and backend are installed from the root.
 
-If you are running the frontend outside of the Dev Container, you must install the dependencies manually:
-
+If you are setting up a local environment, follow these steps from the **project root**:
 ```bash
-# Navigate to the frontend directory
-cd frontend
-
-# Install Python packages
-pip install -r requirements.txt
+# Create and activate a virtual environment (e.g., .venv)
+# Then install all dependencies
+pip install -r backend/requirements.txt && pip install -r frontend/requirements.txt
 ```
 
 ## Environment Variables
