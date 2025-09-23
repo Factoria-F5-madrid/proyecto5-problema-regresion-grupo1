@@ -32,23 +32,18 @@ The frontend requires environment variables to connect to the backend API and lo
 -   `REVENUE_CATEGORY_PATH`: Path to the category encoder file (`.joblib`).
 -   `REVENUE_LOCATION_PATH`: Path to the location encoder file (`.joblib`).
 -   `REVENUE_PLATFORM_PATH`: Path to the platform encoder file (`.joblib`).
+-   `AISLE_IMG`: Path to the aisle image (`.png`).
+
 
 Refer to the main `README.md` for an example of the `.env` file structure.
 
 ## How to Run
 
 1.  **Start the Backend**: Ensure the backend API server is running.
-    ```bash
-    # From the project root
-    cd backend
-    uvicorn api:app --host 0.0.0.0 --port 8000
-    ```
 
-2.  **Start the Frontend**: Open a new terminal.
+2.  **Start the Frontend**: Open a new terminal and, from the project root, run:
     ```bash
-    # From the project root
-    cd frontend
-    streamlit run main.py
+    streamlit run frontend/main.py
     ```
 
 The application will be available in your browser, typically at `http://localhost:8501`.

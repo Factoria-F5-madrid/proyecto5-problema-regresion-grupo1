@@ -1,23 +1,31 @@
-from json import load
 import os
-from unicodedata import category
+from pathlib import Path
 from dotenv import load_dotenv
 import joblib
 import pandas as pd
 from fastapi import FastAPI
 
-from models.revenue_model import RevenueModel
+from .models.revenue_model import RevenueModel
 
-# Load env variables
-load_dotenv()
+# --- Path and Environment Configuration ---
 
-# Get env variables for revenue model
-REVENUE_MODEL_PATH = os.getenv("REVENUE_MODEL_PATH")
-REVENUE_SCALER_PATH = os.getenv("REVENUE_SCALER_PATH")
+# Define the project root directory. api.py is in backend/, so root is one level up.
+# This makes path handling robust regardless of where the script is run from.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+# Load env variables from the .env file in the project root
+load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
+
+# Get env variables and construct absolute paths for model files
+# The paths in .env are relative to the project root (e.g., ./models/model.joblib)
+REVENUE_MODEL_PATH = PROJECT_ROOT / os.getenv("REVENUE_MODEL_PATH")
+REVENUE_SCALER_PATH = PROJECT_ROOT / os.getenv("REVENUE_SCALER_PATH")
+REVENUE_LOCATION_PATH = PROJECT_ROOT / os.getenv("REVENUE_LOCATION_PATH")
+REVENUE_CATEGORY_PATH = PROJECT_ROOT / os.getenv("REVENUE_CATEGORY_PATH")
+REVENUE_PLATFORM_PATH = PROJECT_ROOT / os.getenv("REVENUE_PLATFORM_PATH")
+
+# The endpoint is a string, not a file path
 PREDICT_REVENUE_ENDPOINT = os.getenv("PREDICT_REVENUE_ENDPOINT")
-REVENUE_LOCATION_PATH = os.getenv("REVENUE_LOCATION_PATH")
-REVENUE_CATEGORY_PATH = os.getenv("REVENUE_CATEGORY_PATH") 
-REVENUE_PLATFORM_PATH = os.getenv("REVENUE_PLATFORM_PATH")
 
 # 1. Load the pre-trained model and scaler
 try:
@@ -26,8 +34,8 @@ try:
     revenue_category_dict = joblib.load(REVENUE_CATEGORY_PATH)
     revenue_platform_dict = joblib.load(REVENUE_PLATFORM_PATH)
     revenue_location_dict = joblib.load(REVENUE_LOCATION_PATH)  
-except FileNotFoundError:
-    raise RuntimeError("Model or scaler not found. Please ensure they exist.")
+except FileNotFoundError as e:
+    raise RuntimeError(f"Model or scaler not found. Please ensure they exist. Details: {e}")
 
 # 2. Initialize the FastAPI app
 app = FastAPI()

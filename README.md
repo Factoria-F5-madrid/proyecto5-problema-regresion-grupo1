@@ -7,6 +7,7 @@ This project implements a machine learning model to solve a regression problem: 
 -   `.devcontainer/`: Contains configuration for the development container, ensuring a consistent development environment.
 -   `backend/`: The FastAPI application that serves the machine learning model. See `backend/README.md` for more details.
 -   `frontend/`: The user interface for interacting with the prediction API. See `frontend/README.md` for more details.
+-   `resources/`: The resources used by the backend and the frontend.
 
 ## Getting Started
 
@@ -30,13 +31,14 @@ This project is configured to run inside a VS Code Development Container, which 
     The application requires environment variables to locate the model files. Create a `.env` file in the project root (`/workspaces/proyecto5-problema-regresion-grupo1`) and add the following, adjusting the paths if necessary:
 
     ```env
-    REVENUE_MODEL_PATH=./models/revenue_model.joblib
-    REVENUE_SCALER_PATH=./models/revenue_scaler.joblib
-    REVENUE_CATEGORY_PATH=./models/revenue_category_encoder.joblib
-    REVENUE_PLATFORM_PATH=./models/revenue_platform_encoder.joblib
-    REVENUE_LOCATION_PATH=./models/revenue_location_encoder.joblib
+    REVENUE_MODEL_PATH=./resources/revenue/model_ridge.joblib
+    REVENUE_SCALER_PATH=./resources/revenue/standard_scaler.joblib
+    REVENUE_CATEGORY_PATH=./resources/revenue/category_by_price_dict.joblib
+    REVENUE_PLATFORM_PATH=./resources/revenue/platform_by_price_dict.joblib
+    REVENUE_LOCATION_PATH=./resources/revenue/location_by_price_dict.joblib
     PREDICT_REVENUE_ENDPOINT=/predict/revenue
-    API_URL=http://localhost:8000
+    API_URL=http://127.0.0.1:8000
+    AISLE_IMG=./resources/images/aisle.png
     ```
     *Note: The model, scaler, and encoder files should be placed in a `models/` directory in the project root.*
 
@@ -88,11 +90,10 @@ After opening the project in the Dev Container, you can run each service in a se
 
 #### Running the Backend
 
-1.  Open a new terminal in VS Code (which will be inside the dev container).
-2.  Navigate to the backend directory and start the server:
+1.  Open a new terminal in VS Code (which will be at the project root).
+2.  Start the FastAPI server:
     ```bash
-    cd backend
-    uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+    uvicorn backend.api:app --host 0.0.0.0 --port 8000 --reload
     ```
     The API will be available at `http://localhost:8000`.
 
@@ -103,11 +104,10 @@ http://localhost:8000/docs
 
 #### Running the Frontend
 
-1.  Open a second terminal in VS Code.
-2.  Navigate to the frontend directory and start the application:
+1.  Open a second terminal in VS Code (which will be at the project root).
+2.  Start the Streamlit application:
     ```bash
-    cd frontend
-    streamlit run main.py
+    streamlit run frontend/main.py
     ```
     The frontend will be available at `http://localhost:8501`.
 
@@ -153,13 +153,14 @@ This section provides a basic guide for deploying the application using Docker o
     Create a `.env` file in the project root. The key difference for production is the `FASTAPI_URL`, which must use the Docker service name of the backend (`backend`) so the frontend container can find it.
 
     ```env
-    REVENUE_MODEL_PATH=./models/revenue_model.joblib
-    REVENUE_SCALER_PATH=./models/revenue_scaler.joblib
-    REVENUE_CATEGORY_PATH=./models/revenue_category_encoder.joblib
-    REVENUE_PLATFORM_PATH=./models/revenue_platform_encoder.joblib
-    REVENUE_LOCATION_PATH=./models/revenue_location_encoder.joblib
+    REVENUE_MODEL_PATH=./resources/revenue/model_ridge.joblib
+    REVENUE_SCALER_PATH=./resources/revenue/standard_scaler.joblib
+    REVENUE_CATEGORY_PATH=./resources/revenue/category_by_price_dict.joblib
+    REVENUE_PLATFORM_PATH=./resources/revenue/platform_by_price_dict.joblib
+    REVENUE_LOCATION_PATH=./resources/revenue/location_by_price_dict.joblib
     PREDICT_REVENUE_ENDPOINT=/predict/revenue
-    API_URL=http://backend:8000
+    API_URL=http://127.0.0.1:8000
+    AISLE_IMG=./resources/images/aisle.png
     ```
     *Note: Ensure the `models/` directory and its contents are on the server.*
 

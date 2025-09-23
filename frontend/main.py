@@ -1,8 +1,13 @@
+from pathlib import Path
 import streamlit as st
 import requests
 import joblib # Para cargar el mapeo y obtener las categorías reales
 import os # Para acceder a la ruta del mapeo desde .env
 from dotenv import load_dotenv # Para cargar las variables de entorno
+
+# Define the project root directory. api.py is in backend/, so root is one level up.
+# This makes path handling robust regardless of where the script is run from.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 st.set_page_config(
     page_title="Análisis de Productos",
@@ -21,13 +26,13 @@ load_dotenv()
 # Si FastAPI se ejecuta localmente en el puerto 8000, será:
 API_URL = os.getenv("API_URL", "http://backend:8000")
 PREDICT_ENDPOINT = os.getenv("PREDICT_REVENUE_ENDPOINT", "/predict/revenue") # Usa el mismo endpoint que en FastAPI
-IMAGE = "./resources/images/aisle.png" #
+AISLE_IMG = PROJECT_ROOT / os.getenv("AISLE_IMG")
 
 # Ruta al archivo de mapeo para obtener la lista de categorías (sin '__UNKNOWN__')
 # Asegúrate de que esta ruta sea accesible desde donde ejecutas Streamlit
-CATEGORY_MAP = os.getenv("REVENUE_CATEGORY_PATH")
-LOCATION_MAP = os.getenv("REVENUE_LOCATION_PATH")
-PLATFORM_MAP = os.getenv("REVENUE_PLATFORM_PATH")
+CATEGORY_MAP = PROJECT_ROOT / os.getenv("REVENUE_CATEGORY_PATH")
+LOCATION_MAP = PROJECT_ROOT / os.getenv("REVENUE_LOCATION_PATH")
+PLATFORM_MAP = PROJECT_ROOT / os.getenv("REVENUE_PLATFORM_PATH")
 
 # --- Función para cargar las categorías disponibles ---
 @st.cache_data # Cachea la función para que no se ejecute cada vez que Streamlit se actualiza
@@ -71,7 +76,7 @@ if 'prediction_error' not in st.session_state:
 tab1, tab2 = st.tabs(["Predicción de Ingresos", "Otros"])
 
 with st.sidebar:
-    st.image(IMAGE, caption="Supermercado")
+    st.image(AISLE_IMG, caption="Supermercado")
     st.markdown("---") # Separador
     st.write("Análisis de suplementos alimenticios")
     # Aquí puedes añadir más widgets o texto que quieras en la barra lateral
