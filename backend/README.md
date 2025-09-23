@@ -8,10 +8,10 @@ The API receives product data (`Price`, `Day`, `Category`, `Location`, `Platform
 
 ## Running the Server
 
-From the `backend` directory, run the following command to start the Uvicorn server:
+From the project's **root** directory, run the following command to start the Uvicorn server:
 
 ```bash
-uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+uvicorn backend.api:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 The `--reload` flag enables auto-reloading when you make changes to the code. The server will be accessible at `http://localhost:8000`.

@@ -4,17 +4,18 @@ FROM python:3.12-slim
 # Establece el directorio de trabajo dentro del contenedor
 WORKDIR /app
 
-# Copia los archivos de requerimientos e instala las dependencias
-COPY ./requirements.txt .
+# Copia el archivo de requerimientos del backend y los instala
+# Se copian primero para aprovechar el cache de Docker si no cambian
+COPY ./backend/requirements.txt ./backend/requirements.txt
+RUN pip install --no-cache-dir -r ./backend/requirements.txt
 
-# Instala los paquetes de Python
-RUN pip install --no-cache-dir -r requirements.txt
+# Copia el código del backend y los recursos compartidos a sus respectivas carpetas
+COPY ./backend ./backend
+COPY ./resources ./resources
 
-# Copia todo el código del backend al directorio de trabajo
-COPY . .
-
-# Expone el puerto en el que se ejecutará la aplicación
+# Expone el puerto que usa FastAPI
 EXPOSE 8000
 
-# Comando para ejecutar la aplicación con Gunicorn
-CMD ["gunicorn", "api:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]
+# Comando por defecto para ejecutar la aplicación de FastAPI
+# Este comando se ejecutará si no se especifica otro en docker-compose.yml
+CMD ["uvicorn", "backend.api:app", "--host", "0.0.0.0", "--port", "8000"]
