@@ -1,4 +1,4 @@
-Date,Product_Name,Category,Units_Sold,Price,Revenue,Discount,Units Returned,Location,Platform
+Date,Product_Name,Category,Units_Sold,Price,Revenue,Discount,Units_Returned,Location,Platform
 2020-01-06,Whey Protein,Protein,143,31.98,4573.14,0.03,2,Canada,Walmart
 2020-01-06,Vitamin C,Vitamin,139,42.51,5908.89,0.04,0,UK,Amazon
 2020-01-06,Fish Oil,Omega,161,12.91,2078.51,0.25,0,Canada,Amazon
