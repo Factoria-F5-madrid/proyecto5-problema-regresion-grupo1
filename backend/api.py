@@ -16,13 +16,20 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # Load env variables from the .env file in the project root
 load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
 
-# Get env variables and construct absolute paths for model files
-# The paths in .env are relative to the project root (e.g., ./models/model.joblib)
-REVENUE_MODEL_PATH = PROJECT_ROOT / os.getenv("REVENUE_MODEL_PATH")
-REVENUE_SCALER_PATH = PROJECT_ROOT / os.getenv("REVENUE_SCALER_PATH")
-REVENUE_LOCATION_PATH = PROJECT_ROOT / os.getenv("REVENUE_LOCATION_PATH")
-REVENUE_CATEGORY_PATH = PROJECT_ROOT / os.getenv("REVENUE_CATEGORY_PATH")
-REVENUE_PLATFORM_PATH = PROJECT_ROOT / os.getenv("REVENUE_PLATFORM_PATH")
+def get_absolute_path(path: str) -> Path:
+    """
+    Converts a relative path from the project root to an absolute path.
+    If the path is already absolute, it returns it as a Path object.
+    """
+    if os.path.isabs(path):
+        return Path(path)
+    return PROJECT_ROOT / path
+
+REVENUE_MODEL_PATH = get_absolute_path(os.getenv("REVENUE_MODEL_PATH"))
+REVENUE_SCALER_PATH = get_absolute_path(os.getenv("REVENUE_SCALER_PATH"))
+REVENUE_LOCATION_PATH = get_absolute_path(os.getenv("REVENUE_LOCATION_PATH"))
+REVENUE_CATEGORY_PATH = get_absolute_path(os.getenv("REVENUE_CATEGORY_PATH"))
+REVENUE_PLATFORM_PATH = get_absolute_path(os.getenv("REVENUE_PLATFORM_PATH"))
 
 # The endpoint is a string, not a file path
 PREDICT_REVENUE_ENDPOINT = os.getenv("PREDICT_REVENUE_ENDPOINT")
@@ -46,10 +53,15 @@ def predict_revenue(data: RevenueModel):
     """
     Predicts revenue based on Price and Day.
     """
-    # Load dictionaries    
-    category_by_price = revenue_category_dict.get(data.Category)
-    platform_by_price = revenue_platform_dict.get(data.Platform)
-    location_by_price = revenue_location_dict.get(data.Location)
+    # Get the encoded value for each categorical feature.
+    # If the key is not found, default to the value for 'Unknown'.
+    # This prevents NaN values if an unseen category is provided.
+    unknown_category_val = revenue_category_dict.get('Unknown')
+    unknown_platform_val = revenue_platform_dict.get('Unknown')
+    unknown_location_val = revenue_location_dict.get('Unknown')
+    category_by_price = revenue_category_dict.get(data.Category, unknown_category_val)
+    platform_by_price = revenue_platform_dict.get(data.Platform, unknown_platform_val)
+    location_by_price = revenue_location_dict.get(data.Location, unknown_location_val)
 
     # Create a DataFrame from the input data
     # The column names MUST match the names used during training.
