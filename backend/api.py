@@ -3,9 +3,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 import joblib
 import pandas as pd
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
-from .models.revenue_model import RevenueModel
+from .models.revenue import RevenuePayload, RevenuePredictionResult
+from .models.discount import DiscountPayload, DiscountPredictionResult
 
 # --- Path and Environment Configuration ---
 
@@ -30,26 +31,66 @@ REVENUE_SCALER_PATH = get_absolute_path(os.getenv("REVENUE_SCALER_PATH"))
 REVENUE_LOCATION_PATH = get_absolute_path(os.getenv("REVENUE_LOCATION_PATH"))
 REVENUE_CATEGORY_PATH = get_absolute_path(os.getenv("REVENUE_CATEGORY_PATH"))
 REVENUE_PLATFORM_PATH = get_absolute_path(os.getenv("REVENUE_PLATFORM_PATH"))
+DISCOUNT_MODEL_PATH = get_absolute_path(os.getenv("DISCOUNT_MODEL_PATH"))
+DATA_PATH = PROJECT_ROOT / os.getenv("DATA_PATH")
 
 # The endpoint is a string, not a file path
-PREDICT_REVENUE_ENDPOINT = os.getenv("PREDICT_REVENUE_ENDPOINT")
+REVENUE_PREDICTION_ENDPOINT = os.getenv("REVENUE_PREDICTION_ENDPOINT")
+DISCOUNT_PREDICTION_ENDPOINT = os.getenv("DISCOUNT_PREDICTION_ENDPOINT")
 
-# 1. Load the pre-trained model and scaler
+# Load the pre-trained model and scaler
 try:
     revenue_model = joblib.load(REVENUE_MODEL_PATH)
     revenue_scaler = joblib.load(REVENUE_SCALER_PATH)
     revenue_category_dict = joblib.load(REVENUE_CATEGORY_PATH)
     revenue_platform_dict = joblib.load(REVENUE_PLATFORM_PATH)
-    revenue_location_dict = joblib.load(REVENUE_LOCATION_PATH)  
+    revenue_location_dict = joblib.load(REVENUE_LOCATION_PATH)
+
+    # Now we only load the discount model, which includes the internal mapping
+    discount_model = joblib.load(DISCOUNT_MODEL_PATH)
+    products_df = pd.read_csv(DATA_PATH)
 except FileNotFoundError as e:
     raise RuntimeError(f"Model or scaler not found. Please ensure they exist. Details: {e}")
 
-# 2. Initialize the FastAPI app
+# Initialize the FastAPI application
 app = FastAPI()
 
-# 3. Create the prediction endpoint for Revenue
-@app.post(PREDICT_REVENUE_ENDPOINT)
-def predict_revenue(data: RevenueModel):
+# Endpoint for product metadata
+@app.get("/metadata")
+def get_metadata():
+    if products_df.empty:
+        raise HTTPException(
+            status_code=500, detail="Could not load the products DataFrame."
+        )
+
+    product_list = products_df["Product_Name"].unique().tolist()
+    product_info = {
+        name: {
+            "category": products_df[products_df["Product_Name"] == name]["Category"]
+            .mode()
+            .iloc[0],
+            "avg_price": products_df[products_df["Product_Name"] == name][
+                "Price"
+            ].mean(),
+            "avg_units_sold": products_df[products_df["Product_Name"] == name][
+                "Units_Sold"
+            ].mean(),
+        }
+        for name in product_list
+    }
+
+    return {
+        "products": product_list,
+        "product_info": product_info,
+        "categories": sorted(products_df["Category"].unique().tolist()),
+        "locations": sorted(products_df["Location"].unique().tolist()),
+        "platforms": sorted(products_df["Platform"].unique().tolist()),
+    }
+
+
+# Create the prediction endpoint for Revenue
+@app.post(REVENUE_PREDICTION_ENDPOINT, response_model=RevenuePredictionResult)
+def predict_revenue(data: RevenuePayload):
     """
     Predicts revenue based on Price and Day.
     """
@@ -76,3 +117,17 @@ def predict_revenue(data: RevenueModel):
 
     # Return the prediction as a JSON object
     return {"predicted_revenue": prediction[0]}
+
+# Endpoint for discount prediction
+@app.post(DISCOUNT_PREDICTION_ENDPOINT, response_model=DiscountPredictionResult)
+def predict_discount(payload: DiscountPayload):
+    try:
+        data = pd.DataFrame([payload.model_dump()])
+
+        # The discount model pipeline handles categorical variables internally
+        prediction = discount_model.predict(data)[0]
+
+        return {"predicted_discount": prediction}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

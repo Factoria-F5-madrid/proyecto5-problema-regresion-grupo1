@@ -1,10 +1,10 @@
 # Backend API - Revenue Prediction
 
-This directory contains the FastAPI application that serves the revenue prediction model.
+This directory contains the FastAPI application that serves the machine learning models for predicting revenue and discounts.
 
 ## How it Works
 
-The API receives product data (`Price`, `Day`, `Category`, `Location`, `Platform`), preprocesses it using a saved scaler and encoders, and then uses a pre-trained regression model to predict the revenue.
+The API exposes endpoints to predict revenue based on sales data and to suggest an optimal discount for a product. It also provides a metadata endpoint to supply the frontend with necessary information like product lists and categories.
 
 ## Running the Server
 
@@ -17,6 +17,27 @@ uvicorn backend.api:app --host 0.0.0.0 --port 8000 --reload
 The `--reload` flag enables auto-reloading when you make changes to the code. The server will be accessible at `http://localhost:8000`.
 
 ## API Endpoint
+
+### Get Metadata
+
+-   **URL:** `/metadata`
+-   **Method:** `GET`
+-   **Description:** Retrieves metadata for the frontend, including lists of products, categories, locations, platforms, and product-specific information.
+
+#### Example `curl` Request
+
+```bash
+curl -X 'GET' \
+  'http://localhost:8000/metadata' \
+  -H 'accept: application/json'
+```
+
+#### Success Response
+
+-   **Code:** `200 OK`
+-   **Content:** A JSON object containing lists for UI dropdowns and product details.
+
+---
 
 ### Predict Revenue
 
