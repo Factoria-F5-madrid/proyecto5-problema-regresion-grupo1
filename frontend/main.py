@@ -68,7 +68,7 @@ st.title("Análisis de suplementos alimenticios")
 
 # --- Init session status ---
 if 'last_prediction' not in st.session_state:
-    st.session_state.last_prediction = None
+    st.session_state.last_prediction = 0
 if 'prediction_error' not in st.session_state:
     st.session_state.prediction_error = None
 
@@ -86,78 +86,85 @@ with st.sidebar:
 with tab1:
     st.header("Predicción de Ingresos")
 
-    # Input para Price (rango de 1 a 75, como en tu modelo Pydantic)
-    price = st.slider("Precio ($)", min_value=1.0, max_value=75.0, value=25.0, step=0.5, format="$%.2f")
+    col1, col2 =st.columns([2, 1])
 
-    # Input para Day (rango de 1 a 31, como en tu modelo Pydantic)
-    day = st.slider("Día del Mes", min_value=1, max_value=31, value=15)
+    with col1:
+        # Input para Price (rango de 1 a 75, como en tu modelo Pydantic)
+        price = st.slider("Precio ($)", min_value=1.0, max_value=75.0, value=25.0, step=0.5, format="$%.2f")
 
-    # Dropdown para Category
-    if available_categories:
-        category = st.selectbox("Tipo de suplemento", available_categories)
-    else:
-        st.warning("No se pudieron cargar las categorías. Verifica el archivo de mapeo.")
-        category = "" # Default to empty if no categories are loaded
+        # Input para Day (rango de 1 a 31, como en tu modelo Pydantic)
+        day = st.slider("Día del Mes", min_value=1, max_value=31, value=15)
 
-    # Dropdown para Location 
-    if available_locations:
-        location = st.selectbox("País", available_locations)
-    else:
-        st.warning("No se pudieron cargar las localizaciones. Verifica el archivo de mapeo.")
-        location = "" # Default to empty if no categories are loaded
-
-    # Dropdown para Platform
-    if available_platforms:
-        platform = st.selectbox("Tienda", available_platforms)
-    else:
-        st.warning("No se pudieron cargar las tiendas. Verifica el archivo de mapeo.")
-        platform = "" # Default to empty if no categories are loaded
-
-
-    # --- Botón de Predicción ---
-    if st.button("Predecir Ingresos"):
-        if not category:
-            st.error("Por favor, selecciona una categoría.")
+        # Dropdown para Category
+        if available_categories:
+            category = st.selectbox("Tipo de suplemento", available_categories)
         else:
-            # Preparar los datos para enviar a la API
-            payload = {
-                "Price": price,
-                "Day": float(day), # Asegúrate de que Day sea float si tu Pydantic lo espera así
-                "Category": category,
-                "Location": location,
-                "Platform": platform
-            }
+            st.warning("No se pudieron cargar las categorías. Verifica el archivo de mapeo.")
+            category = "" # Default to empty if no categories are loaded
 
-            try:
-                # Enviar la solicitud POST a tu API de FastAPI
-                response = requests.post(f"{API_URL}{PREDICT_ENDPOINT}", json=payload)
-                response.raise_for_status() # Lanza un error si la solicitud no fue exitosa (4xx o 5xx)
+        # Dropdown para Location 
+        if available_locations:
+            location = st.selectbox("País", available_locations)
+        else:
+            st.warning("No se pudieron cargar las localizaciones. Verifica el archivo de mapeo.")
+            location = "" # Default to empty if no categories are loaded
 
-                # Obtener y mostrar la predicción
-                prediction_data = response.json()
-                predicted_revenue = prediction_data.get("predicted_revenue")
+        # Dropdown para Platform
+        if available_platforms:
+            platform = st.selectbox("Tienda", available_platforms)
+        else:
+            st.warning("No se pudieron cargar las tiendas. Verifica el archivo de mapeo.")
+            platform = "" # Default to empty if no categories are loaded
 
-                st.session_state.last_prediction = predicted_revenue
-                st.session_state.prediction_error = None
 
-            except requests.exceptions.ConnectionError:
-                st.session_state.prediction_error = f"Error de conexión: Asegúrate de que la API de FastAPI se esté ejecutando en {API_URL}."
-                st.session_state.last_prediction = None
-            except requests.exceptions.HTTPError as e:
-                error_details = response.json() if response else "No hay detalles"
-                st.session_state.prediction_error = f"Error en la API: {e}. Detalles: {error_details}"
-                st.session_state.last_prediction = None
-            except Exception as e:
-                st.session_state.prediction_error = f"Ocurrió un error inesperado: {e}"
-                st.session_state.last_prediction = None
-            
-    # --- Mostrar el último resultado (persistente) ---
-    st.markdown("---") # Separador visual
+        sub_col1, sub_col2 = st.columns([3, 1])
 
-    if st.session_state.prediction_error:
-        st.error(st.session_state.prediction_error)
-    elif st.session_state.last_prediction is not None:
-        st.success(f"**Última Predicción de Ingresos:** ${st.session_state.last_prediction:,.2f}")
+
+        with sub_col2:
+            # --- Botón de Predicción ---
+            if st.button("Predecir Ingresos", use_container_width=True):
+        
+                if not category:
+                    st.error("Por favor, selecciona una categoría.")
+                else:
+                    # Preparar los datos para enviar a la API
+                    payload = {
+                        "Price": price,
+                        "Day": float(day), # Asegúrate de que Day sea float si tu Pydantic lo espera así
+                        "Category": category,
+                        "Location": location,
+                        "Platform": platform
+                    }
+
+                    try:
+                        # Enviar la solicitud POST a tu API de FastAPI
+                        response = requests.post(f"{API_URL}{PREDICT_ENDPOINT}", json=payload)
+                        response.raise_for_status() # Lanza un error si la solicitud no fue exitosa (4xx o 5xx)
+
+                        # Obtener y mostrar la predicción
+                        prediction_data = response.json()
+                        predicted_revenue = prediction_data.get("predicted_revenue")
+
+                        st.session_state.last_prediction = predicted_revenue
+                        st.session_state.prediction_error = None
+
+                    except requests.exceptions.ConnectionError:
+                        st.session_state.prediction_error = f"Error de conexión: Asegúrate de que la API de FastAPI se esté ejecutando en {API_URL}."
+                        st.session_state.last_prediction = None
+                    except requests.exceptions.HTTPError as e:
+                        error_details = response.json() if response else "No hay detalles"
+                        st.session_state.prediction_error = f"Error en la API: {e}. Detalles: {error_details}"
+                        st.session_state.last_prediction = None
+                    except Exception as e:
+                        st.session_state.prediction_error = f"Ocurrió un error inesperado: {e}"
+                        st.session_state.last_prediction = None
+
+    with col2:
+        if st.session_state.prediction_error:
+            st.error(st.session_state.prediction_error)
+        elif st.session_state.last_prediction is not None:
+            st.success(f"**Última Predicción de Ingresos:** ${st.session_state.last_prediction:,.2f}", )
+
 
 with tab2:
     st.header("Otros")
