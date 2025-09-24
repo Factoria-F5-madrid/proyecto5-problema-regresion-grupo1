@@ -2,6 +2,13 @@
 
 This project implements a machine learning model to solve a regression problem: predicting product revenue. It exposes the model via a web API built with FastAPI and includes a frontend for user interaction.
 
+## Authors
+
+-   Jimena Sonaly Flores Ticona
+-   Bunty Nanwani Nanwani
+-   Noé Moisés Guamán Álvarez
+-   Óscar Rodríguez González
+
 ## Project Structure
 -   `.devcontainer/`: Contains configuration for the development container, ensuring a consistent development environment.
 -   `backend/`: The FastAPI application that serves the machine learning model. See `backend/README.md` for more details.
