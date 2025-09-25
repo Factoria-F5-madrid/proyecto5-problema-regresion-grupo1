@@ -4,6 +4,7 @@ import requests
 import joblib # Para cargar el mapeo y obtener las categorías reales
 import os # Para acceder a la ruta del mapeo desde .env
 from dotenv import load_dotenv # Para cargar las variables de entorno
+import datetime # para el Tab3 
 
 # Define the project root directory. api.py is in backend/, so root is one level up.
 # This makes path handling robust regardless of where the script is run from.
@@ -73,7 +74,7 @@ if 'prediction_error' not in st.session_state:
     st.session_state.prediction_error = None
 
 # --- Widgets  ---
-tab1, tab2 = st.tabs(["Predicción de Ingresos", "Otros"])
+tab1, tab2, tab3 = st.tabs(["Predicción de Ingresos", "Otros", "Predicción de precios de suplementos"])
 
 with st.sidebar:
     st.image(AISLE_IMG, caption="Supermercado")
@@ -162,3 +163,53 @@ with tab1:
 with tab2:
     st.header("Otros")
     st.write("Esta sección se utilizará para otros calculos Se pueden hacer tantas pestañas como sea necesario.")
+
+with tab3:
+    st.title("📊 Predicción de precios de suplementos")
+
+    # --- Obtener lista de productos desde la API ---
+    try:
+        response = requests.get(f"{API_URL}/products")
+        if response.status_code == 200:
+            products = response.json().get("products", [])
+        else:
+            products = []
+    except Exception as e:
+        st.error(f"⚠️ No se pudieron cargar los productos: {e}")
+        products = []
+
+    # --- Selección de producto ---
+    if products:
+        product = st.selectbox("Producto:", products)
+    else:
+        product = st.selectbox("Producto:", ["Ninguno disponible"])
+
+    # --- Selección de fecha ---
+    st.subheader("Selecciona la fecha")
+    today = datetime.date.today()
+    year = st.number_input("Año", min_value=2023, max_value=2100, value=today.year, step=1)
+    month = st.selectbox("Mes", list(range(1, 13)), index=today.month - 1)
+
+    # --- Botón para predecir ---
+    if st.button("🔮 Predecir precio"):
+        try:
+            response = requests.get(
+                f"{API_URL}/predict",
+                params={
+                    "product": product,
+                    "year": int(year),
+                    "month": int(month)
+            
+            }
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                st.success(
+                    f"💰 Precio estimado para **{product}** en {month}/{year}: **${result['predicted_price']}**"
+                )
+            else:
+                st.error(f"❌ Error en la API: {response.status_code} - {response.text}")
+
+        except Exception as e:
+            st.error(f"⚠️ No se pudo conectar con la API: {e}")
