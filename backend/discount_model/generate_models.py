@@ -13,9 +13,10 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Se define el directorio del modelo, saliendo del directorio 'backend' y yendo a la ruta especificada
-DISCOUNT_MODEL_DIR = PROJECT_ROOT / "resources/discount"
+DISCOUNT_MODEL_DIR = PROJECT_ROOT / "../resources/discount"
 DISCOUNT_MODEL_PATH = DISCOUNT_MODEL_DIR / "discount_model.joblib"
 
+print(DISCOUNT_MODEL_PATH)
 
 # --- Lógica del modelo (la misma que ya tenías) ---
 def train_discount_model():
@@ -23,10 +24,10 @@ def train_discount_model():
     Entrena un modelo de regresión para predecir el descuento.
     """
     try:
-        df = pd.read_csv("../data/sales_data.csv")
+        df = pd.read_csv(f"{PROJECT_ROOT}/../resources/data/Supplement_Sales_Weekly_Expanded.csv")
     except FileNotFoundError:
         print(
-            "Error: El archivo 'sales_data.csv' no se encontró. Asegúrate de que esté en la carpeta 'data'."
+            "Error: El archivo 'Supplement_Sales_Weekly_Expanded.csv' no se encontró. Asegúrate de que esté en la carpeta 'resources/data'."
         )
         return None
 
