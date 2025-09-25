@@ -6,6 +6,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 
+from backend.utils import prepare_data, create_features, train_models
+
 
 from .models.revenue import RevenuePayload, RevenuePredictionResult
 from .models.discount import DiscountPayload, DiscountPredictionResult
@@ -30,6 +32,7 @@ DATA_PATH = PROJECT_ROOT / os.getenv("DATA_PATH")
 # The endpoint is a string, not a file path
 REVENUE_PREDICTION_ENDPOINT = os.getenv("REVENUE_PREDICTION_ENDPOINT")
 DISCOUNT_PREDICTION_ENDPOINT = os.getenv("DISCOUNT_PREDICTION_ENDPOINT")
+PRICE_PREDICTION_ENDPOINT = os.getenv("PRICE_PREDICTION_ENDPOINT")
 
 # Load the pre-trained model and scaler
 try:
@@ -120,3 +123,52 @@ def predict_discount(payload: DiscountPayload):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+# --- Modelo Bunty ---
+# Cargar dataset de suplementos
+#DATA_PATH = PROJECT_ROOT / "resources" / "data" / "Supplement_Sales_Weekly_Expanded.csv"
+df = pd.read_csv(DATA_PATH)
+
+# Preparar datos y entrenar modelos
+df_prepared = prepare_data(df)
+df_features = create_features(df_prepared)
+models = train_models(df_features)
+
+@app.get("/products")
+def get_products():
+    products = df_prepared["Product_Name"].unique().tolist()
+    return {"products": products}
+
+
+@app.get(PRICE_PREDICTION_ENDPOINT)
+def predict(product: str, year: int, month: int):
+    if product not in models:
+        return {"error": "Producto no encontrado"}
+    
+    model = models[product]
+
+    features = {
+        "Year": year,
+        "Month": month,
+        "Month_sin": np.sin(2 * np.pi * month / 12),
+        "Month_cos": np.cos(2 * np.pi * month / 12),
+        "Years_From_Start": year - df_prepared['Year'].min(),
+        "Time_Index": (year - df_prepared['Year'].min()) * 12 + month,
+        "Time_Index_Squared": ((year - df_prepared['Year'].min()) * 12 + month) ** 2,
+        "Price_Lag_1": df_features[df_features['Product_Name'] == product]['Price_Avg'].iloc[-1],
+        "Price_Lag_3": df_features[df_features['Product_Name'] == product]['Price_Avg'].iloc[-3],
+        "Price_Lag_12": df_features[df_features['Product_Name'] == product]['Price_Avg'].iloc[-12],
+        "Price_MA_6": df_features[df_features['Product_Name'] == product]['Price_Avg'].rolling(6).mean().iloc[-1],
+        "Price_MA_12": df_features[df_features['Product_Name'] == product]['Price_Avg'].rolling(12).mean().iloc[-1],
+    }
+
+    X_new = pd.DataFrame([features])
+    pred = model.predict(X_new)[0]
+
+    return {
+        "product": product,
+        "year": year,
+        "month": month,
+        "predicted_price": round(float(pred), 2)
+    }

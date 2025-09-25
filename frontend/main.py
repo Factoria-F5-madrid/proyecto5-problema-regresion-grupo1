@@ -4,6 +4,7 @@ import joblib
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import datetime
 
 # Define the project root directory.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -27,6 +28,7 @@ DISCOUNT_PREDICT_ENDPOINT = os.getenv(
     "DISCOUNT_PREDICTION_ENDPOINT", "/predict/discount"
 )
 METADATA_ENDPOINT = "/metadata"
+PRICE_PREDICT_ENDPOINT = os.getenv("PRICE_PREDICTION_ENDPOINT", "/predict/price")
 
 # Define the path to the images
 AISLE_IMG = PROJECT_ROOT / os.getenv("AISLE_IMG")
@@ -181,55 +183,7 @@ with tab1:
         elif st.session_state.last_prediction is not None:
             st.success(f"**Última Predicción de Ingresos:** ${st.session_state.last_prediction:,.2f}", )
 
-    # price = st.slider(
-    #     "Precio ($)",
-    #     min_value=1.0,
-    #     max_value=75.0,
-    #     value=25.0,
-    #     step=0.5,
-    #     format="$%.2f",
-    # )
-    # day = st.slider("Día del Mes", min_value=1, max_value=31, value=15)
-    # category = st.selectbox("Tipo de suplemento", available_categories)
-    # location = st.selectbox("País", available_locations)
-    # platform = st.selectbox("Tienda", available_platforms)
-
-    # if st.button("Predecir Ingresos"):
-    #     payload = {
-    #         "Price": price,
-    #         "Day": float(day),
-    #         "Category": category,
-    #         "Location": location,
-    #         "Platform": platform,
-    #     }
-    #     try:
-    #         response = requests.post(
-    #             f"{API_URL}{REVENUE_PREDICT_ENDPOINT}", json=payload
-    #         )
-    #         response.raise_for_status()
-    #         prediction_data = response.json()
-    #         st.session_state.last_prediction = prediction_data.get("predicted_revenue")
-    #         st.session_state.prediction_error = None
-    #     except requests.exceptions.ConnectionError:
-    #         st.session_state.prediction_error = f"Error de conexión: Asegúrate de que la API de FastAPI se esté ejecutando en {API_URL}."
-    #         st.session_state.last_prediction = None
-    #     except requests.exceptions.HTTPError as e:
-    #         error_details = response.json() if response else "No hay detalles"
-    #         st.session_state.prediction_error = (
-    #             f"Error en la API: {e}. Detalles: {error_details}"
-    #         )
-    #         st.session_state.last_prediction = None
-    #     except Exception as e:
-    #         st.session_state.prediction_error = f"Ocurrió un error inesperado: {e}"
-    #         st.session_state.last_prediction = None
-
-    # st.markdown("---")
-    # if st.session_state.prediction_error:
-    #     st.error(st.session_state.prediction_error)
-    # elif st.session_state.last_prediction is not None:
-    #     st.success(
-    #         f"**Última Predicción de Ingresos:** ${st.session_state.last_prediction:,.2f}"
-    #     )
+    
 
 with tab2:
     st.header("Predicción de Descuento")
@@ -328,3 +282,53 @@ with tab2:
         st.success(
             f"**Última Predicción de Descuento:** {st.session_state.last_discount_prediction*100:,.2f}%"
         )
+
+with tab3:
+    st.title("📊 Predicción de precios de suplementos")
+
+    # --- Obtener lista de productos desde la API ---
+    try:
+        response = requests.get(f"{API_URL}/products")
+        if response.status_code == 200:
+            products = response.json().get("products", [])
+        else:
+            products = []
+    except Exception as e:
+        st.error(f"⚠️ No se pudieron cargar los productos: {e}")
+        products = []
+
+    # --- Selección de producto ---
+    if products:
+        product = st.selectbox("Producto:", products)
+    else:
+        product = st.selectbox("Producto:", ["Ninguno disponible"])
+
+    # --- Selección de fecha ---
+    st.subheader("Selecciona la fecha")
+    today = datetime.date.today()
+    year = st.number_input("Año", min_value=2023, max_value=2100, value=today.year, step=1)
+    month = st.selectbox("Mes", list(range(1, 13)), index=today.month - 1)
+
+    # --- Botón para predecir ---
+    if st.button("🔮 Predecir precio"):
+        try:
+            response = requests.get(
+                f"{API_URL}{PRICE_PREDICT_ENDPOINT}",
+                params={
+                    "product": product,
+                    "year": int(year),
+                    "month": int(month)
+            
+            }
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                st.success(
+                    f"💰 Precio estimado para **{product}** en {month}/{year}: **${result['predicted_price']}**"
+                )
+            else:
+                st.error(f"❌ Error en la API: {response.status_code} - {response.text}")
+
+        except Exception as e:
+            st.error(f"⚠️ No se pudo conectar con la API: {e}")
