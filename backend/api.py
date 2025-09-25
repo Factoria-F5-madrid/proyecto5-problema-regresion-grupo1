@@ -4,12 +4,11 @@ import pandas as pd
 import joblib
 from pathlib import Path
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
-from .models.revenue_model import RevenueModel
-from backend.utils import prepare_data, create_features, train_models
 
-#from .utils import prepare_data, create_features, train_models   # 👈 tienes que tener esto en utils.py
+from .models.revenue import RevenuePayload, RevenuePredictionResult
+from .models.discount import DiscountPayload, DiscountPredictionResult
 
 # --- Path and Environment Configuration ---
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -25,24 +24,72 @@ REVENUE_SCALER_PATH = get_absolute_path(os.getenv("REVENUE_SCALER_PATH"))
 REVENUE_LOCATION_PATH = get_absolute_path(os.getenv("REVENUE_LOCATION_PATH"))
 REVENUE_CATEGORY_PATH = get_absolute_path(os.getenv("REVENUE_CATEGORY_PATH"))
 REVENUE_PLATFORM_PATH = get_absolute_path(os.getenv("REVENUE_PLATFORM_PATH"))
+DISCOUNT_MODEL_PATH = get_absolute_path(os.getenv("DISCOUNT_MODEL_PATH"))
+DATA_PATH = PROJECT_ROOT / os.getenv("DATA_PATH")
 
-PREDICT_REVENUE_ENDPOINT = os.getenv("PREDICT_REVENUE_ENDPOINT")
+# The endpoint is a string, not a file path
+REVENUE_PREDICTION_ENDPOINT = os.getenv("REVENUE_PREDICTION_ENDPOINT")
+DISCOUNT_PREDICTION_ENDPOINT = os.getenv("DISCOUNT_PREDICTION_ENDPOINT")
 
-# --- Load trained models ---
+# Load the pre-trained model and scaler
 try:
     revenue_model = joblib.load(REVENUE_MODEL_PATH)
     revenue_scaler = joblib.load(REVENUE_SCALER_PATH)
     revenue_category_dict = joblib.load(REVENUE_CATEGORY_PATH)
     revenue_platform_dict = joblib.load(REVENUE_PLATFORM_PATH)
     revenue_location_dict = joblib.load(REVENUE_LOCATION_PATH)
+
+    # Now we only load the discount model, which includes the internal mapping
+    discount_model = joblib.load(DISCOUNT_MODEL_PATH)
+    products_df = pd.read_csv(DATA_PATH)
 except FileNotFoundError as e:
     raise RuntimeError(f"Model or scaler not found. Details: {e}")
 
 # --- FastAPI ---
 app = FastAPI()
 
-@app.post(PREDICT_REVENUE_ENDPOINT)
-def predict_revenue(data: RevenueModel):
+# Endpoint for product metadata
+@app.get("/metadata")
+def get_metadata():
+    if products_df.empty:
+        raise HTTPException(
+            status_code=500, detail="Could not load the products DataFrame."
+        )
+
+    product_list = products_df["Product_Name"].unique().tolist()
+    product_info = {
+        name: {
+            "category": products_df[products_df["Product_Name"] == name]["Category"]
+            .mode()
+            .iloc[0],
+            "avg_price": products_df[products_df["Product_Name"] == name][
+                "Price"
+            ].mean(),
+            "avg_units_sold": products_df[products_df["Product_Name"] == name][
+                "Units_Sold"
+            ].mean(),
+        }
+        for name in product_list
+    }
+
+    return {
+        "products": product_list,
+        "product_info": product_info,
+        "categories": sorted(products_df["Category"].unique().tolist()),
+        "locations": sorted(products_df["Location"].unique().tolist()),
+        "platforms": sorted(products_df["Platform"].unique().tolist()),
+    }
+
+
+# Create the prediction endpoint for Revenue
+@app.post(REVENUE_PREDICTION_ENDPOINT, response_model=RevenuePredictionResult)
+def predict_revenue(data: RevenuePayload):
+    """
+    Predicts revenue based on Price and Day.
+    """
+    # Get the encoded value for each categorical feature.
+    # If the key is not found, default to the value for 'Unknown'.
+    # This prevents NaN values if an unseen category is provided.
     unknown_category_val = revenue_category_dict.get('Unknown')
     unknown_platform_val = revenue_platform_dict.get('Unknown')
     unknown_location_val = revenue_location_dict.get('Unknown')
@@ -60,50 +107,16 @@ def predict_revenue(data: RevenueModel):
     prediction = revenue_model.predict(scaled_input)
     return {"predicted_revenue": prediction[0]}
 
-# --- Modelo Bunty ---
-# Cargar dataset de suplementos
-DATA_PATH = PROJECT_ROOT / "resources" / "data" / "Supplement_Sales_Weekly_Expanded.csv"
-df = pd.read_csv(DATA_PATH)
+# Endpoint for discount prediction
+@app.post(DISCOUNT_PREDICTION_ENDPOINT, response_model=DiscountPredictionResult)
+def predict_discount(payload: DiscountPayload):
+    try:
+        data = pd.DataFrame([payload.model_dump()])
 
-# Preparar datos y entrenar modelos
-df_prepared = prepare_data(df)
-df_features = create_features(df_prepared)
-models = train_models(df_features)
+        # The discount model pipeline handles categorical variables internally
+        prediction = discount_model.predict(data)[0]
 
-@app.get("/products")
-def get_products():
-    products = df_prepared["Product_Name"].unique().tolist()
-    return {"products": products}
+        return {"predicted_discount": prediction}
 
-
-@app.get("/predict")
-def predict(product: str, year: int, month: int):
-    if product not in models:
-        return {"error": "Producto no encontrado"}
-    
-    model = models[product]
-
-    features = {
-        "Year": year,
-        "Month": month,
-        "Month_sin": np.sin(2 * np.pi * month / 12),
-        "Month_cos": np.cos(2 * np.pi * month / 12),
-        "Years_From_Start": year - df_prepared['Year'].min(),
-        "Time_Index": (year - df_prepared['Year'].min()) * 12 + month,
-        "Time_Index_Squared": ((year - df_prepared['Year'].min()) * 12 + month) ** 2,
-        "Price_Lag_1": df_features[df_features['Product_Name'] == product]['Price_Avg'].iloc[-1],
-        "Price_Lag_3": df_features[df_features['Product_Name'] == product]['Price_Avg'].iloc[-3],
-        "Price_Lag_12": df_features[df_features['Product_Name'] == product]['Price_Avg'].iloc[-12],
-        "Price_MA_6": df_features[df_features['Product_Name'] == product]['Price_Avg'].rolling(6).mean().iloc[-1],
-        "Price_MA_12": df_features[df_features['Product_Name'] == product]['Price_Avg'].rolling(12).mean().iloc[-1],
-    }
-
-    X_new = pd.DataFrame([features])
-    pred = model.predict(X_new)[0]
-
-    return {
-        "product": product,
-        "year": year,
-        "month": month,
-        "predicted_price": round(float(pred), 2)
-    }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

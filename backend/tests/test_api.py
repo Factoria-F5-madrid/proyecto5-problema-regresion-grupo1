@@ -12,25 +12,28 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # Load env variables from the .env file in the project root
 load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
 
-# Es importante establecer las variables de entorno ANTES de importar la app,
-# ya que la app las usa en el momento de la carga para encontrar los modelos.
+# It's important to set the environment variables BEFORE importing the app,
+# as the app uses them at load time to find the models.
 os.environ['REVENUE_MODEL_PATH'] = str(get_absolute_path(os.getenv("REVENUE_MODEL_PATH")))
 os.environ['REVENUE_SCALER_PATH'] = str(get_absolute_path(os.getenv("REVENUE_SCALER_PATH")))
 os.environ['REVENUE_CATEGORY_PATH'] = str(get_absolute_path(os.getenv("REVENUE_LOCATION_PATH")))
 os.environ['REVENUE_PLATFORM_PATH'] = str(get_absolute_path(os.getenv("REVENUE_CATEGORY_PATH")))
 os.environ['REVENUE_LOCATION_PATH'] = str(get_absolute_path(os.getenv("REVENUE_PLATFORM_PATH")))
-os.environ['PREDICT_REVENUE_ENDPOINT'] = os.getenv("PREDICT_REVENUE_ENDPOINT")
+os.environ['REVENUE_PREDICTION_ENDPOINT'] = os.getenv("REVENUE_PREDICTION_ENDPOINT")
+os.environ['DISCOUNT_MODEL_PATH'] = str(get_absolute_path(os.getenv("DISCOUNT_MODEL_PATH")))
+os.environ['DATA_PATH'] = str(PROJECT_ROOT / os.getenv("DATA_PATH"))
 
-# Crear un cliente de prueba para la aplicación FastAPI
+# Create a test client for the FastAPI application
 client = TestClient(app)
 
-# Obtener el endpoint de la variable de entorno para asegurar consistencia
-PREDICT_ENDPOINT = os.getenv("PREDICT_REVENUE_ENDPOINT")
+# Get endpoints from environment variables to ensure consistency
+REVENUE_PREDICT_ENDPOINT = os.getenv("REVENUE_PREDICTION_ENDPOINT")
+DISCOUNT_PREDICT_ENDPOINT = os.getenv("DISCOUNT_PREDICTION_ENDPOINT")
 
 
 def test_predict_revenue_success():
     """
-    Prueba una predicción exitosa (código 200).
+    Test a successful revenue prediction (200 OK).
     """
     payload = {
         "Price": 50.5,
@@ -39,31 +42,31 @@ def test_predict_revenue_success():
         "Location": "USA",
         "Platform": "Amazon"
     }
-    response = client.post(PREDICT_ENDPOINT, json=payload)
+    response = client.post(REVENUE_PREDICT_ENDPOINT, json=payload)
     assert response.status_code == 200
     data = response.json()
     assert "predicted_revenue" in data
     assert isinstance(data["predicted_revenue"], float)
 
 
-def test_predict_revenue_validation_error_price():
+def test_predict_revenue_validation_error_on_price():
     """
-    Prueba un error de validación (código 422) por un precio fuera de rango.
+    Test a validation error (422) for an out-of-range price.
     """
     payload = {
-        "Price": 100.0,  # Precio > 75, debería fallar
+        "Price": 100.0,  # Price > 75, should fail
         "Day": 15,
         "Category": "Vitamin",
         "Location": "USA",
         "Platform": "Amazon"
     }
-    response = client.post(PREDICT_ENDPOINT, json=payload)
+    response = client.post(REVENUE_PREDICT_ENDPOINT, json=payload)
     assert response.status_code == 422
 
 
 def test_predict_revenue_validation_error_missing_field():
     """
-    Prueba un error de validación (código 422) por un campo faltante.
+    Test a validation error (422) for a missing field.
     """
     payload = {
         "Day": 15,
@@ -71,16 +74,70 @@ def test_predict_revenue_validation_error_missing_field():
         "Location": "USA",
         "Platform": "Amazon"
     }
-    response = client.post(PREDICT_ENDPOINT, json=payload)
+    response = client.post(REVENUE_PREDICT_ENDPOINT, json=payload)
     assert response.status_code == 422
 
 
 def test_predict_revenue_unknown_category():
     """
-    Prueba el manejo de una categoría desconocida.
-    El endpoint debería manejarlo sin fallar y devolver una predicción.
+    Test handling of an unknown category.
+    The endpoint should handle it without failing and return a prediction.
     """
     payload = {"Price": 25, "Day": 10, "Category": "NonExistentCategory", "Location": "USA", "Platform": "Amazon"}
-    response = client.post(PREDICT_ENDPOINT, json=payload)
+    response = client.post(REVENUE_PREDICT_ENDPOINT, json=payload)
     assert response.status_code == 200
     assert "predicted_revenue" in response.json()
+
+
+def test_get_metadata_success():
+    """
+    Test a successful call to the /metadata endpoint (200 OK).
+    """
+    response = client.get("/metadata")
+    assert response.status_code == 200
+    data = response.json()
+
+    # Check for the presence of all expected top-level keys
+    expected_keys = ["products", "product_info", "categories", "locations", "platforms"]
+    for key in expected_keys:
+        assert key in data
+
+    # Check that the returned values are of the correct type and not empty
+    assert isinstance(data["products"], list) and data["products"]
+    assert isinstance(data["product_info"], dict) and data["product_info"]
+    assert isinstance(data["categories"], list) and data["categories"]
+
+
+def test_predict_discount_success():
+    """
+    Test a successful discount prediction (200 OK).
+    """
+    payload = {
+        "product_name": "B-Complex",
+        "category": "Vitamin",
+        "price": 25.99,
+        "units_sold": 150,
+        "location": "USA",
+        "platform": "Amazon"
+    }
+    response = client.post(DISCOUNT_PREDICT_ENDPOINT, json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "predicted_discount" in data
+    assert isinstance(data["predicted_discount"], float)
+
+
+def test_predict_discount_validation_error_missing_field():
+    """
+    Test a validation error (422) for a missing field in discount prediction.
+    """
+    payload = {
+        "product_name": "B-Complex",
+        "category": "Vitamin",
+        "price": 25.99,
+        # "units_sold" is missing
+        "location": "USA",
+        "platform": "Amazon"
+    }
+    response = client.post(DISCOUNT_PREDICT_ENDPOINT, json=payload)
+    assert response.status_code == 422
