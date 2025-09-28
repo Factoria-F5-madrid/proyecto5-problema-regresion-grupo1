@@ -2,8 +2,8 @@
 
 This project consists of two main parts: a **backend** built with
 **FastAPI** and a **frontend** developed with **Streamlit**.\
-Together, they allow predicting future revenues and calculating a
-predicted discount for different products, based on a regression model.
+Together, they allow predicting future revenues, calculating a
+predicted discount, and forecasting future prices for different products.
 
 ## Authors
 
@@ -27,6 +27,23 @@ predicted discount for different products, based on a regression model.
 
 Make sure you have **Python 3.8** or higher installed.
 
+### Using Dev Containers (Recommended)
+
+This project is configured to run inside a VS Code Dev Container. This is the easiest way to get started as it automatically sets up the environment and installs all dependencies.
+
+**Prerequisites:**
+-   [Visual Studio Code](https://code.visualstudio.com/)
+-   [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+-   [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) for VS Code.
+
+**Steps:**
+
+1.  Clone the repository and open the project folder in VS Code.
+2.  A notification will appear in the bottom-right corner asking if you want to **"Reopen in Container"**. Click it.
+3.  VS Code will build the container and install all Python dependencies automatically. This might take a few minutes on the first run.
+4.  Once the container is running, you can proceed to the "How to Run the Application" section below. All commands should be run inside the VS Code integrated terminal.
+
+
 ### Virtual Environment
 
 It is highly recommended to create and activate a virtual environment to
@@ -40,7 +57,7 @@ python -m venv .venv
 source .venv/bin/activate
 
 # Activate the virtual environment (Windows)
-.\.venv\Scriptsctivate
+.\.venv\Scripts\activate
 ```
 
 ### Installing Dependencies
@@ -73,6 +90,9 @@ following configuration:
     DISCOUNT_MODEL_PATH=./resources/discount/discount_model.joblib
     DISCOUNT_PREDICTION_ENDPOINT=/predict/discount
 
+    # Price Model
+    PRICE_PREDICTION_ENDPOINT=/predict/price
+
     # Streamlit
     AISLE_IMG=./resources/images/aisle.png
 
@@ -93,32 +113,40 @@ project root, and run:
 
     streamlit run frontend/main.py
 
-## 3. How Discount Prediction Works
+## 3. How Prediction Works
+The application uses three different machine learning models to provide predictions.
 
-The application uses a regression-based machine learning model to
-predict discounts.\
-The model was trained using a **RandomForestRegressor**, and its role is
-to analyze historical sales data to find correlations between variables.
+### Model 1: Revenue Prediction
+This model predicts future revenue based on a set of input features.
 
-### Input Variables
+*   **Model Type**: Ridge Regression (`model_ridge.joblib`)
+*   **Inputs**:
+    *   Price: The cost per unit.
+    *   Day: The day of the month.
+    *   Category: The product category.
+    *   Location: The country of sale.
+    *   Platform: The online store.
+*   **Output**: A predicted revenue amount.
 
-The model considers the following factors to make predictions:
+### Model 2: Discount Prediction
+This model analyzes historical sales data to suggest a discount for a product.
 
--   Product: The type of supplement.\
--   Category: The category the product belongs to.\
--   Price: The cost per unit.\
--   Units Sold: The sales volume.\
--   Location: The country of sale.\
--   Platform: The online store.
+*   **Model Type**: Random Forest Regressor (`discount_model.joblib`)
+*   **Inputs**:
+    *   Product: The type of supplement.
+    *   Category: The category the product belongs to.
+    *   Price: The cost per unit.
+    *   Units Sold: The historical sales volume.
+    *   Location: The country of sale.
+    *   Platform: The online store.
+*   **Output**: A predicted discount percentage. This value reflects the correlations the model found in the historical data. If the predicted discounts are low, it suggests that historical discounts were small or correlations were weak.
 
-## What does the model do?
+### Model 3: Price Prediction
+This model uses time-series analysis to forecast the future price of a specific product. A separate model is trained for each product when the API starts.
 
-Based on these variables, the model provides a predicted discount.\
-This value reflects the correlation the model found in the historical
-data.
-
-If the predicted discounts are low, it means the correlations were weak
-or the historical discounts were small.
-
-The prediction is a direct reflection of the patterns the model learned
-from that data.
+*   **Model Type**: Gradient Boosting Regressor (one per product)
+*   **Inputs**:
+    *   Product: The name of the supplement.
+    *   Year: The target year for the forecast.
+    *   Month: The target month for the forecast.
+*   **Output**: The predicted average price for the product in the given month and year.
