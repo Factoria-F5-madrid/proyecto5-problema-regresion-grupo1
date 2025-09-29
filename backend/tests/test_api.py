@@ -16,9 +16,9 @@ load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
 # as the app uses them at load time to find the models.
 os.environ['REVENUE_MODEL_PATH'] = str(get_absolute_path(os.getenv("REVENUE_MODEL_PATH")))
 os.environ['REVENUE_SCALER_PATH'] = str(get_absolute_path(os.getenv("REVENUE_SCALER_PATH")))
-os.environ['REVENUE_CATEGORY_PATH'] = str(get_absolute_path(os.getenv("REVENUE_LOCATION_PATH")))
-os.environ['REVENUE_PLATFORM_PATH'] = str(get_absolute_path(os.getenv("REVENUE_CATEGORY_PATH")))
-os.environ['REVENUE_LOCATION_PATH'] = str(get_absolute_path(os.getenv("REVENUE_PLATFORM_PATH")))
+os.environ['REVENUE_CATEGORY_PATH'] = str(get_absolute_path(os.getenv("REVENUE_CATEGORY_PATH")))
+os.environ['REVENUE_PLATFORM_PATH'] = str(get_absolute_path(os.getenv("REVENUE_PLATFORM_PATH")))
+os.environ['REVENUE_LOCATION_PATH'] = str(get_absolute_path(os.getenv("REVENUE_LOCATION_PATH")))
 os.environ['REVENUE_PREDICTION_ENDPOINT'] = os.getenv("REVENUE_PREDICTION_ENDPOINT")
 os.environ['DISCOUNT_MODEL_PATH'] = str(get_absolute_path(os.getenv("DISCOUNT_MODEL_PATH")))
 os.environ['DATA_PATH'] = str(PROJECT_ROOT / os.getenv("DATA_PATH"))
@@ -29,6 +29,7 @@ client = TestClient(app)
 # Get endpoints from environment variables to ensure consistency
 REVENUE_PREDICT_ENDPOINT = os.getenv("REVENUE_PREDICTION_ENDPOINT")
 DISCOUNT_PREDICT_ENDPOINT = os.getenv("DISCOUNT_PREDICTION_ENDPOINT")
+PRICE_PREDICT_ENDPOINT = os.getenv("PRICE_PREDICTION_ENDPOINT")
 
 
 def test_predict_revenue_success():
@@ -140,4 +141,49 @@ def test_predict_discount_validation_error_missing_field():
         "platform": "Amazon"
     }
     response = client.post(DISCOUNT_PREDICT_ENDPOINT, json=payload)
+    assert response.status_code == 422
+
+
+def test_predict_price_success():
+    """
+    Test a successful price prediction (200 OK).
+    Note: This test requires a product with enough historical data
+    to survive the feature engineering process (e.g., > 12 months).
+    "Omega-3" is used here for that reason.
+    """
+    params = {
+        "product": "Vitamin C",
+        "year": 2024,
+        "month": 12
+    }
+    response = client.get(PRICE_PREDICT_ENDPOINT, params=params)
+    assert response.status_code == 200
+    data = response.json()
+    assert "predicted_price" in data
+    assert isinstance(data["predicted_price"], float)
+    assert data["product"] == "Vitamin C"
+
+
+def test_predict_price_product_not_found():
+    """
+    Test price prediction for a product that does not exist.
+    The API should return a 200 OK status with an error message in the JSON payload.
+    """
+    params = {
+        "product": "NonExistentProduct",
+        "year": 2024,
+        "month": 12
+    }
+    response = client.get(PRICE_PREDICT_ENDPOINT, params=params)
+    assert response.status_code == 200
+    assert "error" in response.json()
+    assert response.json()["error"] == "Producto no encontrado"
+
+
+def test_predict_price_validation_error_missing_param():
+    """
+    Test a validation error (422) for a missing query parameter.
+    """
+    params = {"product": "Omega-3", "year": 2024}  # Missing 'month'
+    response = client.get(PRICE_PREDICT_ENDPOINT, params=params)
     assert response.status_code == 422
